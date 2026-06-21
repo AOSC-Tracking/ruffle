@@ -30,6 +30,9 @@ wasm-bindgen = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, features = ["registry"], optional = true }
 tracing-wasm = { workspace = true, optional = true }
 
+[build-dependencies]
+bindgen = "0.72.1"
+
 [dependencies.web-sys]
 workspace = true
 optional = true
