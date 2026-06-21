@@ -8,7 +8,7 @@ use std::ptr;
 use std::sync::Arc;
 
 use crate::decoder::VideoDecoder;
-use crate::decoder::openh264_sys::{self, ISVCDecoder, OpenH264, videoFormatI420};
+use crate::decoder::openh264_sys::{self, ISVCDecoder, videoFormatI420};
 
 use ruffle_render::bitmap::BitmapFormat;
 use ruffle_video::error::Error;
@@ -39,7 +39,6 @@ pub enum OpenH264Error {
 
 /// OpenH264 codec representation.
 pub struct OpenH264Codec {
-    openh264: Arc<OpenH264>,
 }
 
 impl OpenH264Codec {
@@ -154,23 +153,14 @@ impl OpenH264Codec {
     where
         P: AsRef<::std::ffi::OsStr>,
     {
-        let openh264 = unsafe { OpenH264::new(filename)? };
-
-        let version = unsafe { openh264.WelsGetCodecVersion() };
-        let version = OpenH264Version(version.uMajor, version.uMinor, version.uRevision);
-
-        if Self::VERSION != version {
-            return Err(OpenH264Error::VersionMismatchError(Self::VERSION, version));
-        }
-
         Ok(Self {
-            openh264: Arc::new(openh264),
         })
     }
 
     /// Loads the OpenH264 library - first trying one installed on the system (on supported platforms),
     /// then falling back to a local file in `directory`, downloading it into there if necessary.
     pub fn load(directory: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        return Ok(Self {});
         let openh264_data = Self::get_data()?;
 
         for filename in openh264_data.local_filenames {
@@ -197,7 +187,6 @@ pub struct H264Decoder {
     /// How many bytes are used to store the length of the NALU (1, 2, 3, or 4).
     length_size: u8,
 
-    openh264: Arc<OpenH264>,
     decoder: *mut ISVCDecoder,
 
     scratch: Vec<u8>,
@@ -211,10 +200,9 @@ struct OpenH264Data {
 
 impl H264Decoder {
     pub fn new(h264: &OpenH264Codec) -> Self {
-        let openh264 = h264.openh264.clone();
         let mut decoder: *mut ISVCDecoder = ptr::null_mut();
         unsafe {
-            openh264.WelsCreateDecoder(&mut decoder);
+            openh264_sys::WelsCreateDecoder(&mut decoder);
 
             let decoder_vtbl = (*decoder).as_ref().unwrap();
 
@@ -225,7 +213,6 @@ impl H264Decoder {
 
             Self {
                 length_size: 0,
-                openh264,
                 decoder,
                 scratch: Vec::new(),
             }
@@ -239,7 +226,7 @@ impl Drop for H264Decoder {
             let decoder_vtbl = (*self.decoder).as_ref().unwrap();
 
             (decoder_vtbl.Uninitialize.unwrap())(self.decoder);
-            self.openh264.WelsDestroyDecoder(self.decoder);
+            openh264_sys::WelsDestroyDecoder(self.decoder);
         }
     }
 }
